@@ -1,0 +1,26 @@
+{
+  "name": "road-transport-pricing-sdk",
+  "version": "1.0.0",
+  "description": "公路运输路线费用估算 SDK，提供车型选择、里程录入、油费估算、过路费、司机补贴、装卸等待、返程空驶、异常加价和报价汇总等能力",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "example": "ts-node examples/basic.ts"
+  },
+  "keywords": [
+    "logistics",
+    "transport",
+    "pricing",
+    "freight",
+    "sdk"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.0",
+    "@types/node": "^20.10.0"
+  }
+}
