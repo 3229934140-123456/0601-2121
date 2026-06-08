@@ -14,6 +14,8 @@ export {
   estimateDuration,
   getWaypointCount,
   formatRouteSummary,
+  isValidCoordinate,
+  getRouteDataQualityLabel,
 } from './modules/route';
 
 export {
@@ -52,10 +54,32 @@ export {
   DEFAULT_PRICE_CONFIG,
   generateQuote,
   formatQuoteDisplay,
+  GenerateQuoteOptions,
 } from './modules/quote';
 
-import { generateQuote, formatQuoteDisplay } from './modules/quote';
-import { QuoteInput, QuoteResult, PriceConfig } from './types';
+export {
+  validateQuoteInput,
+  throwIfInvalid,
+  DEFAULT_VALIDATION_LIMITS,
+} from './modules/validation';
+
+export {
+  DEFAULT_REGION_FUEL_RULES,
+  DEFAULT_LINE_TOLL_RULES,
+  DEFAULT_SPECIAL_LINE_RULES,
+  resolveRouteRules,
+  RuleResolution,
+} from './modules/rules';
+
+export {
+  runBatchQuote,
+  formatBatchTable,
+} from './modules/batch';
+
+import { generateQuote, formatQuoteDisplay, DEFAULT_PRICE_CONFIG, GenerateQuoteOptions } from './modules/quote';
+import { runBatchQuote, formatBatchTable } from './modules/batch';
+import { validateQuoteInput } from './modules/validation';
+import { QuoteInput, QuoteResult, PriceConfig, QuoteValidationError, BatchQuoteInput, BatchQuoteComparison } from './types';
 
 export class RoadTransportPricer {
   private config: Partial<PriceConfig>;
@@ -64,12 +88,28 @@ export class RoadTransportPricer {
     this.config = customConfig || {};
   }
 
-  quote(input: QuoteInput): QuoteResult {
-    return generateQuote(input, this.config);
+  quote(input: QuoteInput, options?: GenerateQuoteOptions): QuoteResult {
+    return generateQuote(input, this.config, options);
+  }
+
+  quoteOrThrow(input: QuoteInput, options?: GenerateQuoteOptions): QuoteResult {
+    return generateQuote(input, this.config, { ...options, throwOnInvalid: true });
+  }
+
+  validate(input: QuoteInput) {
+    return validateQuoteInput(input);
+  }
+
+  batch(input: BatchQuoteInput): BatchQuoteComparison {
+    return runBatchQuote(input, this.config);
   }
 
   formatQuote(quote: QuoteResult): string {
     return formatQuoteDisplay(quote);
+  }
+
+  formatBatch(comparison: BatchQuoteComparison): string {
+    return formatBatchTable(comparison);
   }
 
   updateConfig(customConfig: Partial<PriceConfig>): void {
@@ -81,4 +121,5 @@ export class RoadTransportPricer {
   }
 }
 
+export { QuoteValidationError };
 export default RoadTransportPricer;

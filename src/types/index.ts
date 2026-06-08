@@ -25,6 +25,22 @@ export enum RiskLevel {
   CRITICAL = 'critical',
 }
 
+export enum ValidationErrorCode {
+  NEGATIVE_VALUE = 'NEGATIVE_VALUE',
+  ZERO_DISTANCE = 'ZERO_DISTANCE',
+  EMPTY_CITY = 'EMPTY_CITY',
+  EXCEED_LIMIT = 'EXCEED_LIMIT',
+  INVALID_COORDINATE = 'INVALID_COORDINATE',
+  MISSING_REQUIRED = 'MISSING_REQUIRED',
+}
+
+export enum RouteDataQuality {
+  FULL_COORDINATES = 'full_coordinates',
+  PARTIAL_COORDINATES = 'partial_coordinates',
+  CITY_ONLY = 'city_only',
+  CUSTOM_DISTANCE = 'custom_distance',
+}
+
 export interface VehicleSpec {
   type: VehicleType;
   name: string;
@@ -46,6 +62,23 @@ export interface RoutePoint {
   lat?: number;
 }
 
+export interface RouteSegment {
+  index: number;
+  from: RoutePoint;
+  to: RoutePoint;
+  distance: number;
+  estimatedDuration: number;
+  distanceSource: 'coordinate' | 'city_estimate' | 'fallback';
+  remark?: string;
+  subtotal?: {
+    baseKmCost: number;
+    fuelCost: number;
+    tollCost: number;
+    driverCost: number;
+    total: number;
+  };
+}
+
 export interface RouteInfo {
   origin: RoutePoint;
   destination: RoutePoint;
@@ -53,6 +86,9 @@ export interface RouteInfo {
   distance: number;
   estimatedDuration: number;
   waypointCount: number;
+  segments: RouteSegment[];
+  dataQuality: RouteDataQuality;
+  degradationNotes: string[];
 }
 
 export interface AdditionalServices {
@@ -63,6 +99,9 @@ export interface AdditionalServices {
   returnEmpty?: boolean;
   insurance?: boolean;
   nightOperation?: boolean;
+  coldChain?: boolean;
+  dangerousCargo?: boolean;
+  mountainRoute?: boolean;
 }
 
 export interface PriceConfig {
@@ -75,6 +114,47 @@ export interface PriceConfig {
   nightSurchargeRate: number;
   returnEmptyRate: number;
   grossProfitMargin: number;
+}
+
+export interface RegionFuelRule {
+  province: string;
+  fuelPrice: number;
+  remark?: string;
+}
+
+export interface LineTollRule {
+  key: string;
+  fromCity: string;
+  toCity: string;
+  tollCoefficient: number;
+  remark?: string;
+}
+
+export interface SpecialLineRule {
+  key: string;
+  type: 'mountain' | 'cold_chain' | 'dangerous_cargo' | 'custom';
+  name: string;
+  rateMultiplier: number;
+  appliesTo?: {
+    provinces?: string[];
+    cities?: string[];
+  };
+  remark?: string;
+}
+
+export interface RouteRules {
+  regionFuelRules?: RegionFuelRule[];
+  lineTollRules?: LineTollRule[];
+  specialLineRules?: SpecialLineRule[];
+}
+
+export interface AppliedRuleRecord {
+  key: string;
+  name: string;
+  type: 'seasonal' | 'region_fuel' | 'line_toll' | 'special_line' | 'urgency' | 'custom';
+  effect: string;
+  amount?: number;
+  multiplier?: number;
 }
 
 export interface QuoteInput {
@@ -90,6 +170,32 @@ export interface QuoteInput {
   additionalServices?: AdditionalServices;
   customTollFee?: number;
   transportDate?: string;
+  rules?: RouteRules;
+}
+
+export interface ValidationError {
+  code: ValidationErrorCode;
+  field: string;
+  message: string;
+  value?: unknown;
+  suggestion?: string;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+  warnings: ValidationError[];
+}
+
+export class QuoteValidationError extends Error {
+  readonly errors: ValidationError[];
+  readonly warnings: ValidationError[];
+  constructor(result: ValidationResult) {
+    super(`报价参数校验失败，共 ${result.errors.length} 个错误`);
+    this.name = 'QuoteValidationError';
+    this.errors = result.errors;
+    this.warnings = result.warnings;
+  }
 }
 
 export interface CostBreakdownItem {
@@ -114,6 +220,18 @@ export interface PriceRange {
   recommended: number;
 }
 
+export interface DetailedConfirmation {
+  totalPrice: number;
+  includedServices: string[];
+  excludedCosts: string[];
+  validUntil: string;
+  validHours: number;
+  overloadWarnings: string[];
+  priceAdjustmentConditions: string[];
+  remarks: string[];
+  plainText: string;
+}
+
 export interface QuoteResult {
   vehicleSpec: VehicleSpec;
   route: RouteInfo;
@@ -123,8 +241,10 @@ export interface QuoteResult {
   grossProfit: number;
   grossProfitRate: number;
   risks: RiskWarning[];
+  appliedRules: AppliedRuleRecord[];
   summary: string;
   confirmationBrief: string;
+  detailedConfirmation: DetailedConfirmation;
   validUntil: string;
 }
 
@@ -133,4 +253,45 @@ export interface SeasonalRule {
   months: number[];
   type: SeasonType;
   rateMultiplier: number;
+}
+
+export interface BatchQuoteVariant {
+  id?: string;
+  vehicleType?: VehicleType;
+  season?: SeasonType;
+  urgency?: UrgencyLevel;
+  additionalServices?: AdditionalServices;
+  rules?: RouteRules;
+}
+
+export interface BatchQuoteInput {
+  base: Omit<QuoteInput, 'vehicleType' | 'season' | 'urgency' | 'additionalServices' | 'rules'> & {
+    vehicleType?: VehicleType;
+    season?: SeasonType;
+    urgency?: UrgencyLevel;
+    additionalServices?: AdditionalServices;
+    rules?: RouteRules;
+  };
+  variants: BatchQuoteVariant[];
+  globalConfig?: Partial<PriceConfig>;
+  failFast?: boolean;
+}
+
+export interface BatchQuoteResultItem {
+  variantId: string;
+  variant: BatchQuoteVariant;
+  success: boolean;
+  quote?: QuoteResult;
+  errors?: ValidationError[];
+  rank?: {
+    byPrice: number;
+    byRisk: number;
+  };
+}
+
+export interface BatchQuoteComparison {
+  cheapestId: string;
+  lowestRiskId: string;
+  items: BatchQuoteResultItem[];
+  summary: string;
 }
